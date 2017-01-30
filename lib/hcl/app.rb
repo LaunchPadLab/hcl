@@ -24,7 +24,7 @@ module HCl
     end
 
     # Run the given command and arguments.
-    def self.command *args
+    def self.command(*args)
       new.process_args(*args).run
     end
 
@@ -32,7 +32,7 @@ module HCl
     #
     # @param [#to_s] command name of command
     # @return [true, false]
-    def command? command
+    def command?(command)
       Commands.method_defined? command
     end
 
@@ -46,8 +46,8 @@ module HCl
       begin
         if @command
           if command? @command
-            result = send @command, *@args
-            if not result.nil?
+            result = send(@command, @options, *@args)
+            unless result.nil?
               if result.respond_to? :join
                 puts result.join(', ')
               elsif result.respond_to? :to_s
@@ -70,8 +70,8 @@ module HCl
         $stderr.puts "Connection failed. (#{e.message})"
         exit 1
       rescue HarvestMiddleware::ThrottleFailure => e
-        $stderr.puts "Too many requests, retrying in #{e.retry_after+5} seconds..."
-        sleep e.retry_after+5
+        $stderr.puts "Too many requests, retrying in #{e.retry_after + 5} seconds..."
+        sleep e.retry_after + 5
         run
       rescue HarvestMiddleware::AuthFailure => e
         $stderr.puts "Unable to authenticate: #{e}"
@@ -83,7 +83,7 @@ module HCl
       end
     end
 
-    def process_args *args
+    def process_args(*args)
       @options = Trollop::options(args) do
         stop_on Commands.instance_methods
         version "HCl version #{VERSION}"
@@ -141,8 +141,9 @@ Examples:
 
 Options:
 EOM
-        opt :reauth, "Force refresh of auth details"
-        opt :changelog, "Review the HCl changelog"
+        opt :reauth, 'Force refresh of auth details'
+        opt :changelog, 'Review the HCl changelog'
+        opt :clearcache, 'Clear the task cache'
       end
       @command = args.shift
       @args = args
@@ -152,11 +153,9 @@ EOM
     private
 
     def read_config
-      if File.exists? CONFIG_FILE
+      if File.exist? CONFIG_FILE
         config = YAML::load(File.read(CONFIG_FILE)) || {}
-        if has_security_command?
-          load_password config
-        end
+        load_password config if security_command?
         @http = HCl::Net.new config
       else
         request_config
@@ -175,7 +174,7 @@ EOM
 
     def write_config config
       puts "Writing configuration to #{CONFIG_FILE}."
-      if has_security_command?
+      if security_command?
         save_password config
       end
       File.open(CONFIG_FILE, 'w') do |f|
@@ -185,7 +184,7 @@ EOM
     end
 
     def read_settings
-      if File.exists? SETTINGS_FILE
+      if File.exist? SETTINGS_FILE
         @settings = YAML.load(File.read(SETTINGS_FILE)) || {}
       else
         @settings = {}
@@ -201,22 +200,22 @@ EOM
 
     def write_settings
       File.open(SETTINGS_FILE, 'w') do |f|
-       f.write @settings.to_yaml
+        f.write @settings.to_yaml
       end
       cache_aliases
       nil
     end
 
-    def has_security_command?
+    def security_command?
       if @has_security.nil?
-        @has_security = File.exists?('/usr/bin/security') &&
+        @has_security = File.exist?('/usr/bin/security') &&
           (`/usr/bin/security error 1` =~ /CSSM_ERRCODE_INTERNAL_ERROR/)
       else
         @has_security
       end
     end
 
-    def load_password config
+    def load_password(config)
       cmd = "security find-internet-password -l hcl -a '%s' -s '%s.harvestapp.com' -w" % [
         config['login'],
         config['subdomain'],
@@ -225,13 +224,13 @@ EOM
       config.update('password'=>password.chomp) if $?.success?
     end
 
-    def save_password config
+    def save_password(config)
       if system("security add-internet-password -U -l hcl -a '%s' -s '%s.harvestapp.com' -w '%s'" % [
         config['login'],
         config['subdomain'],
-        config['password'],
-      ]) then config.delete('password') end
+        config['password']
+      ]) then config.delete('password')
+      end
     end
   end
 end
-

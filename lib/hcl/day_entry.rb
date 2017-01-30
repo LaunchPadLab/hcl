@@ -3,9 +3,9 @@ module HCl
     include Utility
 
     collection_name :day_entries
-    resources :today, 'daily', load_cb:->(data) { Task.cache_tasks_hash data }
-    resources(:daily) {|date| date ? "daily/#{date.strftime '%j/%Y'}" : 'daily' }
-    resource(:project_info, class_name:'Project') { "projects/#{project_id}" }
+    resources :today, 'daily', load_cb: ->(data) { Task.cache_tasks_hash data }
+    resources(:daily) { |date| date ? "daily/#{date.strftime '%j/%Y'}" : 'daily' }
+    resource(:project_info, class_name: 'Project') { "projects/#{project_id}" }
 
     def to_s
       "#{client} - #{project} - #{task} (#{formatted_hours})"
@@ -15,7 +15,7 @@ module HCl
       @data[:task]
     end
 
-    def cancel http
+    def cancel(http)
       begin
         http.delete("daily/delete/#{id}")
       rescue HarvestMiddleware::Failure
@@ -29,11 +29,11 @@ module HCl
     end
 
     # Append a string to the notes for this task.
-    def append_note http, new_notes
+    def append_note(http, new_notes)
       # If I don't include hours it gets reset.
       # This doens't appear to be the case for task and project.
       (self.notes << "\n#{new_notes}").lstrip!
-      http.post "daily/update/#{id}", notes:notes, hours:hours
+      http.post "daily/update/#{id}", notes: notes, hours: hours
     end
 
     def self.with_timer http, date=nil
@@ -45,15 +45,15 @@ module HCl
         detect {|t| t.project_id == project_id && t.task_id == task_id }
     end
 
-    def self.last http
-      today(http).sort {|a,b| a.updated_at<=>b.updated_at}[-1]
+    def self.last(http)
+      today(http).sort { |a,b| a.updated_at <=> b.updated_at }[-1]
     end
 
     def running?
       !@data[:timer_started_at].nil? && !@data[:timer_started_at].empty?
     end
 
-    def toggle http
+    def toggle(http)
       http.get("daily/timer/#{id}")
       self
     end
