@@ -7,18 +7,19 @@ module HCl
 
     # Display a sanitized view of your auth credentials.
     def config
-      http.config_hash.merge(password:'***').map {|k,v| "#{k}: #{v}" }.join("\n")
+      http.config_hash.merge(password: '***')
+          .map { |k, v| "#{k}: #{v}" }.join("\n")
     end
 
     # Show the network status of the Harvest service.
     def status
-      result = Faraday.new("http://kccljmymlslr.statuspage.io/api/v2") do |f|
+      result = Faraday.new('http://kccljmymlslr.statuspage.io/api/v2') do |f|
         f.adapter Faraday.default_adapter
       end.get('status.json').body
 
       json = Yajl::Parser.parse result, symbolize_keys: true
       status = json[:status][:description]
-      updated_at = DateTime.parse(json[:page][:updated_at]).strftime "%F %T %:z"
+      updated_at = DateTime.parse(json[:page][:updated_at]).strftime '%F %T %:z'
 
       "#{status} [#{updated_at}]"
     end
@@ -28,16 +29,14 @@ module HCl
       nil
     end
 
-    def tasks project_code=nil
+    def tasks project_code = nil
       tasks = Task.all
       if tasks.empty? # cache tasks
         DayEntry.today(http)
         tasks = Task.all
       end
-      tasks.select! {|t| t.project.code == project_code } if project_code
-      if tasks.empty?
-        fail "No matching tasks."
-      end
+      tasks.select! { |t| t.project.code == project_code } if project_code
+      raise 'No matching tasks.' if tasks.empty?
       tasks.map { |task| "#{task.project.id} #{task.id}\t#{task}" }.join("\n")
     end
 

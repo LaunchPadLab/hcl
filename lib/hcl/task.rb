@@ -3,14 +3,14 @@ require 'fileutils'
 
 module HCl
   class Task < TimesheetResource
-    def self.cache_tasks_hash day_entry_hash
-      tasks = day_entry_hash[:projects].
-        map { |p| p[:tasks].map {|t| new t.merge(project:Project.new(p)) } }.flatten.uniq
-      unless tasks.empty?
-        FileUtils.mkdir_p(cache_dir)
-        File.open(cache_file, 'w') do |f|
-          f.write tasks.to_yaml
-        end
+    def self.cache_tasks_hash(day_entry_hash)
+      tasks = day_entry_hash[:projects]
+              .map { |p| p[:tasks].map { |t| new t.merge(project: Project.new(p)) } }
+              .flatten.uniq
+      return if tasks.empty? 
+      FileUtils.mkdir_p(cache_dir)
+      File.open(cache_file, 'w') do |f|
+        f.write tasks.to_yaml
       end
     end
 
@@ -23,17 +23,17 @@ module HCl
     end
 
     def self.all
-      tasks = File.exists?(cache_file) ? YAML.load(File.read(cache_file)) : []
-      tasks = tasks.sort do |a,b|
+      tasks = File.exist?(cache_file) ? YAML.load(File.read(cache_file)) : []
+      tasks = tasks.sort do |a, b|
         r = a.project.client <=> b.project.client
-        r = a.project.name <=> b.project.name if r == 0
-        r = a.name <=> b.name if r == 0
+        r = a.project.name <=> b.project.name if r.zero?
+        r = a.name <=> b.name if r.zero?
         r
       end
       tasks
     end
 
-    def self.find project_id, id
+    def self.find(project_id, id)
       all.detect do |t|
         t.project.id.to_i == project_id.to_i && t.id.to_i == id.to_i
       end
@@ -47,10 +47,11 @@ module HCl
       end
     end
 
-    def add http, opts
+    def add(http, opts)
       notes = opts[:note]
       starting_time = opts[:starting_time] || 0
-      DayEntry.new http.post("daily/add", {
+      DayEntry.new http.post('daily/add', 
+      {
         notes: notes,
         hours: starting_time,
         project_id: project.id,
@@ -59,7 +60,7 @@ module HCl
       })
     end
 
-    def start http, opts
+    def start(http, opts)
       day = add http, opts
       if day.running?
         day
@@ -69,4 +70,3 @@ module HCl
     end
   end
 end
-
